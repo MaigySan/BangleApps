@@ -1,1 +1,20 @@
 
+{
+  "id": "furries",
+  "name": "Furries",
+  "shortName": "Furries",
+  "version": "0.01",
+  "author": "MaigySan",
+  "description": "Tap the screen to summon Bits, Maigee, Be-chan or Nero po!",
+  "icon": "app.png",
+  "tags": "game",
+  "supports": ["BANGLEJS2"],
+  "storage": [
+    {"name":"furries.app.js","url":"app.js"},
+    {"name":"furries.img","url":"app-icon.js","evaluate":true},
+    {"name":"furries.bits.img","url":"bits.img"},
+    {"name":"furries.maigee.img","url":"maigee.img"},
+    {"name":"furries.bechan.img","url":"bechan.img"},
+    {"name":"furries.neropo.img","url":"neropo.img"}
+  ]
+}
