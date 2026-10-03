@@ -1,9 +1,8 @@
-
 {
   "id": "furries",
   "name": "Furries",
   "shortName": "Furries",
-  "version": "0.01",
+  "version": "0.02",
   "author": "MaigySan",
   "description": "Tap the screen to summon Bits, Maigee, Be-chan or Nero po!",
   "icon": "app.png",
