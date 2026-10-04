@@ -15,6 +15,8 @@
   var previous = [];
   var minuteTimer;
   var stepTimer;
+  var reminderTimer;
+  var standPending = false;
 
   function pad2(value) {
     return (value < 10 ? "0" : "") + value;
@@ -38,9 +40,10 @@
     g.drawString(value, center, tile.y + Math.round(tile.h * offset));
   }
 
-  function beginTile(index, label) {
+  function beginTile(index, inverted) {
     var tile = tiles[index];
-    g.reset().setColor("#000").fillRect(tile.x, tile.y,
+    g.reset().setBgColor(inverted ? "#fff" : "#000")
+      .setColor(inverted ? "#fff" : "#000").fillRect(tile.x, tile.y,
       tile.x + tile.w - 1, tile.y + tile.h - 1);
     // Dividers belong to the left/top tiles, so partial redraws preserve them.
     g.setColor("#fff");
@@ -52,22 +55,20 @@
       g.drawLine(tile.x, tile.y + tile.h - 1,
         tile.x + tile.w - 1, tile.y + tile.h - 1);
     }
-    g.setColor("#0ff");
-    text(label, tile, 0.14);
-    g.setColor("#fff");
+    g.setColor(inverted ? "#000" : "#fff");
     return tile;
   }
 
   function drawTime(date) {
     var hours = date.getHours();
     var value = pad2(is12Hour ? (hours % 12 || 12) : hours) + ":" + pad2(date.getMinutes());
-    var footer = is12Hour ? (hours < 12 ? "AM" : "PM") : "24H";
+    var footer = is12Hour ? (hours < 12 ? "AM" : "PM") : "";
     var key = value + footer;
     if (previous[0] === key) return;
     previous[0] = key;
-    var tile = beginTile(0, "TIME");
-    text(value, tile, 0.48, 32);
-    text(footer, tile, 0.81);
+    var tile = beginTile(0);
+    text(value, tile, 0.50, 32);
+    if (footer) text(footer, tile, 0.81);
   }
 
   function drawDate(date) {
@@ -76,16 +77,25 @@
     var key = weekday + date.getDate() + footer;
     if (previous[1] === key) return;
     previous[1] = key;
-    var tile = beginTile(1, weekday);
-    text("" + date.getDate(), tile, 0.48, 36);
-    text(footer, tile, 0.81);
+    var tile = beginTile(1);
+    text(weekday, tile, 0.17, 18);
+    text("" + date.getDate(), tile, 0.49, 36);
+    text(footer, tile, 0.84, 16);
   }
 
   function drawSteps() {
+    if (standPending) {
+      if (previous[2] === "stand") return;
+      previous[2] = "stand";
+      var reminderTile = beginTile(2, true);
+      text("STAND", reminderTile, 0.37, 24);
+      text("UP", reminderTile, 0.67, 24);
+      return;
+    }
     var steps = Bangle.getHealthStatus("day").steps;
     if (previous[2] === steps) return;
     previous[2] = steps;
-    var tile = beginTile(2, "STEPS");
+    var tile = beginTile(2);
     var value = "" + steps;
     var groups = "";
     // Espruino's small regexp engine does not support lookahead.
@@ -93,8 +103,7 @@
       groups = "," + value.slice(-3) + groups;
       value = value.slice(0, -3);
     }
-    text(value + groups, tile, 0.48, 32);
-    text("TODAY", tile, 0.81);
+    text(value + groups, tile, 0.50, 34);
   }
 
   function drawBattery() {
@@ -103,18 +112,10 @@
     var key = level + ":" + charging;
     if (previous[3] === key) return;
     previous[3] = key;
-    var tile = beginTile(3, "BATTERY");
-    text(level + "%", tile, 0.46, 32);
-    var x = tile.x + Math.floor((tile.w - 30) / 2);
-    var y = tile.y + Math.round(tile.h * 0.68);
-    g.drawRect(x, y, x + 27, y + 10);
-    g.fillRect(x + 28, y + 3, x + 30, y + 7);
-    g.setColor(level <= 15 ? "#f00" : level <= 30 ? "#ff0" : "#0f0");
-    var fill = Math.round(24 * level / 100);
-    if (fill > 0) g.fillRect(x + 2, y + 2, x + 1 + fill, y + 8);
+    var tile = beginTile(3);
+    text(level + "%", tile, 0.50, 32);
     if (charging) {
-      g.setColor("#0ff");
-      text("CHARGING", tile, 0.89);
+      text("CHARGING", tile, 0.84, 12);
     }
   }
 
@@ -156,22 +157,42 @@
     }
   }
 
+  function onReminder() {
+    standPending = true;
+    drawSteps();
+    Bangle.buzz(500);
+  }
+
+  function onTouch(button, position) {
+    if (!standPending || !position) return;
+    var tile = tiles[2];
+    if (position.x < tile.x || position.x >= tile.x + tile.w ||
+        position.y < tile.y || position.y >= tile.y + tile.h) return;
+    standPending = false;
+    // Read the current total, including steps taken while the reminder was up.
+    drawSteps();
+  }
+
   function cleanup() {
     if (minuteTimer !== undefined) clearTimeout(minuteTimer);
     if (stepTimer !== undefined) clearTimeout(stepTimer);
+    if (reminderTimer !== undefined) clearInterval(reminderTimer);
     Bangle.removeListener("step", onStep);
     Bangle.removeListener("charging", drawBattery);
     Bangle.removeListener("lock", onUnlock);
+    Bangle.removeListener("touch", onTouch);
     E.removeListener("kill", cleanup);
   }
 
   // Standard clock controls: the hardware button opens the launcher.
   // Widgets are omitted so the four tiles use the entire display.
-  Bangle.setUI({ mode: "clock", redraw: redraw });
+  Bangle.setUI({ mode: "clock", redraw: redraw, touch: onTouch });
   Bangle.on("step", onStep);
   Bangle.on("charging", drawBattery);
   Bangle.on("lock", onUnlock);
   E.on("kill", cleanup);
   redraw();
   queueMinute();
+  // Repeat every five minutes while this clock is running, including locked.
+  reminderTimer = setInterval(onReminder, 5 * 60 * 1000);
 })();
