@@ -1,0 +1,18 @@
+{
+  "id": "quadclock",
+  "name": "Four Squares",
+  "shortName": "Four Squares",
+  "version": "0.01",
+  "author": "MaigySan",
+  "description": "A full-screen 2x2 clock with digital time, date and weekday, today's steps, and battery status.",
+  "icon": "app.png",
+  "type": "clock",
+  "tags": "clock,steps,battery",
+  "supports": ["BANGLEJS2"],
+  "readme": "README.md",
+  "screenshots": [{"url": "screenshot.png"}],
+  "storage": [
+    {"name": "quadclock.app.js", "url": "app.js"},
+    {"name": "quadclock.img", "url": "app-icon.js", "evaluate": true}
+  ]
+}
